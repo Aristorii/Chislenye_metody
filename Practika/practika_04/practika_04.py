@@ -29,7 +29,7 @@ def run_task(task_name, loop_fn, np_fn, data):
     print(f"Результаты совпадают: {ok}")
 
 
-# ЗАДАЧИ 1-14
+# ЗАДАЧИ 1-10
 
 # Данные
 a = np.random.default_rng(42).normal(size=1_000_000)
@@ -106,38 +106,3 @@ run_task("Задача 9", loop9, np9, a.copy())
 def loop10(arr): return [x for x in arr if -1 < x < 1]
 def np10(arr): return arr[(arr > -1) & (arr < 1)]
 run_task("Задача 10", loop10, np10, a)
-
-# Задача 11:
-X = np.random.default_rng(42).normal(size=(500, 3))
-Y = np.random.default_rng(43).normal(size=(500, 3))
-def loop11(xy):
-    X, Y = xy
-    return [[math.sqrt(sum((X[i, k] - Y[j, k])**2 for k in range(3))) for j in range(len(Y))] for i in range(len(X))]
-def np11(xy):
-    X, Y = xy
-    return np.sqrt(((X[:, None, :] - Y[None, :, :])**2).sum(axis=2))
-run_task("Задача 11", loop11, np11, (X, Y))
-
-# Задача 12: 
-def loop12(arr):
-    return [sum(arr[i-9:i+1])/10 for i in range(9, len(arr))]
-def np12(arr): return np.convolve(arr, np.ones(10)/10, mode='valid')
-run_task("Задача 12", loop12, np12, a)
-
-# Задача 13: 
-def loop13(arr):
-    res, s = [], 0
-    for x in arr:
-        s += x
-        res.append(s)
-    return res
-def np13(arr): return np.cumsum(arr)
-run_task("Задача 13", loop13, np13, a)
-
-# Задача 14: 
-def loop14(arr):
-    counts = {}
-    for v in arr: counts[v] = counts.get(v, 0) + 1
-    return counts
-def np14(arr): return np.bincount(arr)
-run_task("Задача 14", loop14, np14, ints)
