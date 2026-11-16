@@ -1,0 +1,206 @@
+import numpy as np
+
+print("=" * 60)
+print("ЗАДАЧА 1. Инвентаризация массива")
+print("=" * 60)
+a = np.arange(60).reshape(3, 4, 5)
+print("shape:", a.shape)
+print("ndim:", a.ndim)
+print("size:", a.size)
+print("dtype:", a.dtype)
+print("strides:", a.strides)
+print("C_CONTIGUOUS:", a.flags['C_CONTIGUOUS'])
+# Вывод: size=60, потому что 3*4*5=60. strides=(160, 40, 8) означает, что для перехода на след. элемент по 1-й оси нужно 160 байт (20 чисел по 8 байт), по 2-й оси — 40 байт (5 чисел), по 3-й — 8 байт (1 число float64). 
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 2. int vs float — тихая ловушка")
+print("=" * 60)
+a = np.array([1, 2, 3, 4])
+print("a / 2:    ", a / 2, "| dtype:", (a / 2).dtype)
+print("a // 2:   ", a // 2, "| dtype:", (a // 2).dtype)
+print("a / 2.0:  ", a / 2.0, "| dtype:", (a / 2.0).dtype)
+print("a.dtype:  ", a.dtype)
+
+b = np.array([1, 2, 3], dtype=np.int8)
+print("\nb + 127:", b + 127, "| dtype:", (b + 127).dtype)
+# Вывод: a / 2 не меняет a, т.к. создает новый float-массив (операция не in-place).b + 127 дает странный результат из-за переполнения int8 (макс. 127),NumPy не падает, т.к. это поведение C по умолчанию (циклический сдвиг).
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 3. float32 vs float64 — реальная точность")
+print("=" * 60)
+err32 = float(np.float32(0.1)) - 0.1
+err64 = float(np.float64(0.1)) - 0.1
+print("float32 - 0.1:", repr(err32), "| :.20e:", f"{err32:.20e}")
+print("float64 - 0.1:", repr(err64), "| :.20e:", f"{err64:.20e}")
+ratio = abs(err32) / abs(err64)
+print(f"Ошибка float32 больше в {ratio:.0f} раз")
+# Вывод: float32 (7 значащих цифр) допустим в нейросетях/графике для экономии памяти, но недопустим в финансовых расчетах или научных симуляциях, где нужна точность.
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 4. Явный dtype при создании")
+print("=" * 60)
+arr1 = np.zeros((2, 3), dtype=np.float64)
+arr2 = np.zeros((2, 3), dtype=np.float32)
+arr3 = np.ones((2, 3), dtype=np.int16)
+arr4 = np.full((2, 3), 7, dtype=np.uint8)
+
+for name, arr in [("float64", arr1), ("float32", arr2), ("int16", arr3), ("uint8", arr4)]:
+    print(f"{name}: dtype={arr.dtype}, nbytes={arr.nbytes}")
+
+big64 = np.zeros((1000, 1000), dtype=np.float64)
+big32 = np.zeros((1000, 1000), dtype=np.float32)
+print(f"\nЭкономия float32 на (1000, 1000): {big64.nbytes - big32.nbytes} байт (в 2 раза)")
+# Вывод: float32 экономит память вдвое, но точность падает до 7 знаков. Компромисс: используем float32 для картинок/нейросетей, float64 — для науки.
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 5. Цепочка reshape")
+print("=" * 60)
+a = np.arange(24)
+for shape in [(4, 6), (2, 3, 4), (2, 2, 6), (24,)]:
+    a = a.reshape(shape)
+    print(f"shape: {a.shape}, array_equal: {np.array_equal(np.arange(24), a.ravel())}")
+# Вывод: reshape обычно не копирует данные, а меняет "взгляд" (strides). Копирование происходит, только если данные в памяти не непрерывны.
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 6. flatten vs ravel — копия или view")
+print("=" * 60)
+M = np.arange(12).reshape(3, 4)
+f = M.flatten()
+r = M.ravel()
+print("f.base is None (копия):", f.base is None)
+print("r.base is M (view):", r.base is not None)
+f[0] = 999
+r[1] = 888
+print("M после изменений:\n", M)
+# Вывод: flatten всегда возвращает копию (безопасно, но тратит память), ravel возвращает view (быстро, но изменения влияют на оригинал).
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 7. newaxis, squeeze, транспонирование")
+print("=" * 60)
+v = np.arange(5)
+print("v[:, None].shape:", v[:, None].shape)    # (5, 1) — столбец
+print("v[None, :].shape:", v[None, :].shape)    # (1, 5) — строка
+print("squeeze(v[:, None]).shape:", np.squeeze(v[:, None]).shape)  # (5,)
+A = np.arange(6).reshape(2, 3)
+print("A.T.shape:", A.T.shape, "\nA.T:\n", A.T)  # (3, 2)
+res = v[:, None] + v[None, :]
+print("v[:, None] + v[None, :]:\n", res)
+# Вывод: это таблица умножения (внешняя сумма). newaxis добавляет измерение для broadcasting, squeeze убирает размерности длины 1.
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 8. Транспонирование без копии")
+print("=" * 60)
+A = np.arange(6).reshape(2, 3)
+B = A.T
+print("B.base is A:", B.base is A)
+B[0, 1] = 999
+print("A после изменения B:\n", A)
+# Вывод: .T — это view, а не копия. Она меняет порядок обхода (strides), поэтому изменение B меняет A.
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 9. Поэлементно vs матричное")
+print("=" * 60)
+A = np.arange(6).reshape(2, 3)
+B = np.arange(6).reshape(3, 2)
+print("A @ B:\n", A @ B)       # (2, 2) — матричное умножение
+print("A.T @ B.T:\n", A.T @ B.T) # (3, 3)
+print("A * A:\n", A * A)       # поэлементное
+# A * B даст ошибку, т.к. формы (2,3) и (3,2) несовместимы для поэлементного умножения. * — поэлементное, @ — матричное. Совпадают для диагональных матриц.
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 10. axis=0 vs axis=1")
+print("=" * 60)
+M = np.arange(12).reshape(3, 4)
+print("M.sum(axis=0):", M.sum(axis=0))   # по столбцам (сворачиваем строки)
+print("M.sum(axis=1):", M.sum(axis=1))   # по строкам (сворачиваем столбцы)
+print("M.mean(axis=0):", M.mean(axis=0))
+print("M.mean(axis=1):", M.mean(axis=1))
+print("M.argmax(axis=0):", M.argmax(axis=0))
+print("M.argmax(axis=1):", M.argmax(axis=1))
+# Вывод: axis=0 — "сворачиваем" строки (результат по столбцам), axis=1 — "сворачиваем" столбцы (результат по строкам).
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 11. keepdims и broadcasting")
+print("=" * 60)
+X = np.random.default_rng(42).normal(size=(5, 3))
+print("X.mean(axis=0).shape:", X.mean(axis=0).shape)               # (3,)
+print("X.mean(axis=0, keepdims=True).shape:", X.mean(axis=0, keepdims=True).shape) # (1, 3)
+print("X - X.mean(axis=0).shape:", (X - X.mean(axis=0)).shape)     # (5, 3) благодаря broadcasting
+print("X - X.mean(axis=0, keepdims=True).shape:", (X - X.mean(axis=0, keepdims=True)).shape) # (5, 3)
+
+X_norm = (X - X.mean(axis=1, keepdims=True)) / X.std(axis=1, keepdims=True)
+print("Средние по строкам:", np.round(X_norm.mean(axis=1), 10))
+print("Std по строкам:", np.round(X_norm.std(axis=1), 10))
+# Вывод: keepdims сохраняет размерность (1, 3) вместо (3,), что позволяет корректно вычитать среднее из каждой строки через broadcasting.
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 12. Срез — view, не копия")
+print("=" * 60)
+a = np.arange(10)
+b = a[2:5]
+b[0] = 999
+print("a после b[0]=999:", a)  # изменился
+c = a[2:5].copy()
+c[0] = -1
+print("a после c[0]=-1:", a)   # не изменился
+# Вывод: срез — view (экономит память), copy — независимая копия. В численных методах случайное изменение оригинала через view может испортить эксперимент.
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 13. Булева маска и fancy indexing")
+print("=" * 60)
+a = np.random.default_rng(0).normal(size=20)
+print("a[a > 0] (кол-во):", a[a > 0].size)
+print("a[(a > -1) & (a < 1)] (кол-во):", a[(a > -1) & (a < 1)].size)
+print("a[[0, 5, 10, 15]]:", a[[0, 5, 10, 15]])
+print("a[np.abs(a) > 2]:", a[np.abs(a) > 2])
+a[a < 0] = 0
+print("После зануления отрицательных:\n", a)
+# a[a > 0] & (a < 1) дает ошибку, потому что a > 0 — это массив bool, а & (побитовое И) не работает с оператором сравнения без скобок. Нужно (a > 0) & (a < 1).
+
+print("\n" + "=" * 60)
+print("ЗАДАЧА 15. Полный кейс")
+print("=" * 60)
+rng = np.random.default_rng(42)
+raw = rng.normal(loc=20, scale=2, size=(30, 4))
+raw[7, 2] = 100  # выброс
+
+print("1. shape:", raw.shape, "| dtype:", raw.dtype, "| size:", raw.size)
+
+print("\n2. Поиск выбросов:")
+mask = np.abs(raw - raw.mean(axis=0)) > 3 * raw.std(axis=0)
+print("Выбросов найдено:", np.sum(mask))
+print("Индексы выбросов:", np.argwhere(mask))
+
+print("\n3. Замена выбросов на среднее:")
+clean = raw.copy()
+clean[mask] = np.nan
+means = np.nanmean(clean, axis=0)
+clean = np.where(np.isnan(clean), means, clean)
+print("Значение в (7, 2) после замены:", clean[7, 2])
+
+print("\n4. Транспонирование:")
+print("До: ", raw.shape)
+transposed = raw.T
+print("После .T: ", transposed.shape)
+back = transposed.T
+print("Обратно: ", back.shape, "| array_equal:", np.array_equal(raw, back))
+
+print("\n5. Ravel и reshape:")
+flat = raw.ravel()
+print("После ravel:", flat.shape)
+restored = flat.reshape(30, 4)
+print("После reshape:", restored.shape, "| array_equal:", np.array_equal(raw, restored))
+
+print("\n6. Средние и std по датчикам:")
+print("Средние:", np.round(raw.mean(axis=0), 2))
+print("Std:", np.round(raw.std(axis=0), 2))
+
+print("\n7. Нормировка:")
+normalized = (raw - raw.mean(axis=0)) / raw.std(axis=0)
+print("Средние после нормировки:", np.round(normalized.mean(axis=0), 10))
+print("Std после нормировки:", np.round(normalized.std(axis=0), 10))
+
+print("\n=== ВЫВОД ===")
+print("copy() потребовался при замене выбросов (чтобы не испортить исходные данные).")
+print("Broadcasting сработал при нормировке каждого столбца без циклов.")
+print("Ошибка формы могла возникнуть при вычитании среднего без keepdims, если бы формы не совпали.")
