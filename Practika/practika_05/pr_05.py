@@ -1,0 +1,139 @@
+import timeit
+import tracemalloc
+import matplotlib.pyplot as plt
+import numpy as np
+
+# ЗАДАЧА 1
+
+print("=" * 60)
+print("ЗАДАЧА 1: Сравнение проверки вхождения (list vs set)")
+print("=" * 60)
+
+n_values = [100, 1000, 10000]
+times_list = []
+times_set = []
+target = -1  # ищем число, которого нет (худший случай для list)
+
+for n in n_values:
+    data_list = list(range(n))
+    data_set = set(range(n))
+    
+    # Замер для list
+    t_list = min(timeit.repeat(
+        stmt="target in data_list",
+        globals={"target": target, "data_list": data_list},
+        number=1000,
+        repeat=5
+    )) / 1000 * 1_000_000  # время одной проверки в микросекундах
+    
+    # Замер для set
+    t_set = min(timeit.repeat(
+        stmt="target in data_set",
+        globals={"target": target, "data_set": data_set},
+        number=1000,
+        repeat=5
+    )) / 1000 * 1_000_000
+    
+    times_list.append(t_list)
+    times_set.append(t_set)
+    
+    print(f"n={n:6d}: list={t_list:8.2f} мкс | set={t_set:8.2f} мкс | set быстрее в {t_list/t_set:6.1f} раз")
+
+# График
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.plot(n_values, times_list, "o-", label="list (O(n))")
+ax.plot(n_values, times_set, "s-", label="set (O(1))")
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlabel("Размер коллекции (n)")
+ax.set_ylabel("Время одной проверки (мкс)")
+ax.set_title("Проверка вхождения: list vs set")
+ax.legend()
+ax.grid(True, which="both", alpha=0.2)
+plt.tight_layout()
+plt.show()
+
+# ЗАДАЧА 2
+print("\n" + "=" * 60)
+print("ЗАДАЧА 2: Три способа создания списка квадратов")
+print("=" * 60)
+
+N_values = [100_000, 1_000_000]
+methods = ["Цикл + append", "List comprehension", "map + lambda"]
+
+# Строки кода для timeit и exec
+stmts = {
+    "Цикл + append": "out = []\nfor i in range(N):\n    out.append(i*i)",
+    "List comprehension": "out = [i*i for i in range(N)]",
+    "map + lambda": "out = list(map(lambda i: i*i, range(N)))"
+}
+
+# Результаты
+results_time = {m: [] for m in methods}
+results_mem = {m: [] for m in methods}
+
+for N in N_values:
+    for m in methods:
+        stmt = stmts[m]
+        
+        # Замер времени (в миллисекундах)
+        t = min(timeit.repeat(
+            stmt=stmt,
+            globals={"N": N},
+            number=1,
+            repeat=5
+        )) * 1000
+        results_time[m].append(t)
+        
+        # Замер памяти (в МБ)
+        tracemalloc.start()
+        exec(stmt, {"N": N})
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        results_mem[m].append(peak / (1024 * 1024))
+
+# Вывод в консоль
+for i, N in enumerate(N_values):
+    print(f"\nN = {N}:")
+    for m in methods:
+        print(f"  {m:20s}: время = {results_time[m][i]:6.2f} мс, память = {results_mem[m][i]:5.2f} МБ")
+
+# Графики
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
+
+# График времени (линии с маркерами)
+for m in methods:
+    ax1.plot(N_values, results_time[m], "o-", label=m)
+ax1.set_xscale("log")
+ax1.set_xlabel("N")
+ax1.set_ylabel("Время (мс)")
+ax1.set_title("Время создания списка квадратов")
+ax1.legend()
+ax1.grid(True, alpha=0.3)
+
+# График памяти (столбцы)
+x = np.arange(len(N_values))
+width = 0.25
+for i, m in enumerate(methods):
+    ax2.bar(x + (i - 1) * width, results_mem[m], width, label=m)
+ax2.set_xticks(x)
+ax2.set_xticklabels([f"N={N}" for N in N_values])
+ax2.set_ylabel("Пиковая память (МБ)")
+ax2.set_title("Память при создании списка квадратов")
+ax2.legend()
+ax2.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+# ВЫВОДЫ
+print("\n" + "=" * 60)
+print("ВЫВОДЫ")
+print("=" * 60)
+print("1. По памяти все три способа дают примерно одинаковый результат,")
+print("   так как итоговый список квадратов одинаковый. Промежуточные")
+print("   объекты (append, lambda) краткоживущие и почти не влияют на пик.")
+print("2. По времени list comprehension быстрее всех: цикл выполняется")
+print("   на уровне C без накладных расходов на вызов append.")
+print("3. map + lambda медленнее из-за накладных расходов на вызов lambda")
+print("   для каждого элемента.")
